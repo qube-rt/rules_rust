@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>rustfmt - rules_rust</title>
+        <title>rust_test_suite - rules_rust</title>
 
 
         <!-- Custom HTML head -->
@@ -155,80 +155,70 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
-<p><a href="https://github.com/rust-lang/rustfmt#readme">Rustfmt</a> is a tool for formatting Rust code according to style guidelines.
-By default, Rustfmt uses a style which conforms to the <a href="https://github.com/rust-lang-nursery/fmt-rfcs/blob/master/guide/guide.md">Rust style guide</a> that
-has been formalized through the <a href="https://github.com/rust-lang-nursery/fmt-rfcs">style RFC process</a>. A complete list of all
-configuration options can be found in the <a href="https://rust-lang.github.io/rustfmt/">Rustfmt GitHub Pages</a>.</p>
-<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
-<p>Formatting your Rust targets' source code requires no setup outside of loading <code>rules_rust</code>
-in your workspace. Simply run <code>bazel run @rules_rust//:rustfmt</code> to format source code.</p>
-<p>In addition to this formatter, a simple check can be performed using the <a href="#rustfmt-aspect">rustfmt_aspect</a> aspect by running</p>
-<pre><code class="language-text">bazel build --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks
-</code></pre>
-<p>Add the following to a <code>.bazelrc</code> file to enable this check during the build phase.</p>
-<pre><code class="language-text">build --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect
-build --output_groups=+rustfmt_checks
-</code></pre>
-<p>It's recommended to only enable this aspect in your CI environment so formatting issues do not
-impact user's ability to rapidly iterate on changes.</p>
-<p>The <code>rustfmt_aspect</code> also uses a <code>--@rules_rust//rust/settings:rustfmt.toml</code> setting which determines the
-<a href="https://rust-lang.github.io/rustfmt/">configuration file</a> used by the formatter (<code>@rules_rust//tools/rustfmt</code>) and the aspect
-(<code>rustfmt_aspect</code>). This flag can be added to your <code>.bazelrc</code> file to ensure a consistent config
-file is used whenever <code>rustfmt</code> is run:</p>
-<pre><code class="language-text">build --@rules_rust//rust/settings:rustfmt.toml=//:rustfmt.toml
-</code></pre>
-<h2 id="rules"><a class="header" href="#rules">Rules</a></h2>
-<ul>
-<li><a href="#rustfmt_test">rustfmt_test</a></li>
-</ul>
-<h2 id="aspects"><a class="header" href="#aspects">Aspects</a></h2>
-<ul>
-<li><a href="#rustfmt_aspect">rustfmt_aspect</a></li>
-</ul>
-<p><a id="rustfmt_test"></a></p>
-<h2 id="rustfmt_test"><a class="header" href="#rustfmt_test">rustfmt_test</a></h2>
+                        <!-- Generated with Stardoc: http://skydoc.bazel.build -->
+<h1 id="rust_test_suitebzl"><a class="header" href="#rust_test_suitebzl">rust_test_suite.bzl</a></h1>
+<p><a id="rust_test_suite"></a></p>
+<h2 id="rust_test_suite"><a class="header" href="#rust_test_suite">rust_test_suite</a></h2>
 <pre>
-load("@rules_rust//rust:defs.bzl", "rustfmt_test")
+load("@rules_rust//rust:rust_test_suite.bzl", "rust_test_suite")
 
-rustfmt_test(<a href="#rustfmt_test-name">name</a>, <a href="#rustfmt_test-targets">targets</a>)
+rust_test_suite(<a href="#rust_test_suite-name">name</a>, <a href="#rust_test_suite-srcs">srcs</a>, <a href="#rust_test_suite-shared_srcs">shared_srcs</a>, <a href="#rust_test_suite-kwargs">**kwargs</a>)
 </pre>
-<p>A test rule for performing <code>rustfmt --check</code> on a set of targets</p>
-<p><strong>ATTRIBUTES</strong></p>
-<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Name</th><th style="text-align: left">Description</th><th style="text-align: left">Type</th><th style="text-align: left">Mandatory</th><th style="text-align: left">Default</th></tr></thead><tbody>
-<tr><td style="text-align: left"><a id="rustfmt_test-name"></a>name</td><td style="text-align: left">A unique name for this target.</td><td style="text-align: left"><a href="https://bazel.build/concepts/labels#target-names">Name</a></td><td style="text-align: left">required</td><td style="text-align: left"></td></tr>
-<tr><td style="text-align: left"><a id="rustfmt_test-targets"></a>targets</td><td style="text-align: left">Rust targets to run <code>rustfmt --check</code> on.</td><td style="text-align: left"><a href="https://bazel.build/concepts/labels">List of labels</a></td><td style="text-align: left">optional</td><td style="text-align: left"><code>[]</code></td></tr>
+<p>A rule for creating a test suite for a set of <code>rust_test</code> targets.</p>
+<p>This rule can be used for setting up typical rust <a href="https://doc.rust-lang.org/rust-by-example/testing/integration_testing.html">integration tests</a>. Given the following
+directory structure:</p>
+<pre><code class="language-text">[crate]/
+    BUILD.bazel
+    src/
+        lib.rs
+        main.rs
+    tests/
+        integrated_test_a.rs
+        integrated_test_b.rs
+        integrated_test_c.rs
+        patterns/
+            fibonacci_test.rs
+        helpers/
+            mod.rs
+</code></pre>
+<p>The rule can be used to generate <a href="#rust_test">rust_test</a> targets for each source file under <code>tests</code>
+and a <a href="https://docs.bazel.build/versions/master/be/general.html#test_suite">test_suite</a> which encapsulates all tests.</p>
+<pre><code class="language-python">load("//rust:defs.bzl", "rust_binary", "rust_library", "rust_test_suite")
+
+rust_library(
+    name = "math_lib",
+    srcs = ["src/lib.rs"],
+)
+
+rust_binary(
+    name = "math_bin",
+    srcs = ["src/main.rs"],
+)
+
+rust_test_suite(
+    name = "integrated_tests_suite",
+    srcs = glob(["tests/**"]),
+    shared_srcs=glob(["tests/helpers/**"]),
+    deps = [":math_lib"],
+)
+</code></pre>
+<p><strong>PARAMETERS</strong></p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Name</th><th style="text-align: left">Description</th><th style="text-align: left">Default Value</th></tr></thead><tbody>
+<tr><td style="text-align: left"><a id="rust_test_suite-name"></a>name</td><td style="text-align: left">The name of the <code>test_suite</code>.</td><td style="text-align: left">none</td></tr>
+<tr><td style="text-align: left"><a id="rust_test_suite-srcs"></a>srcs</td><td style="text-align: left">All test sources, typically <code>glob(["tests/**/*.rs"])</code>.</td><td style="text-align: left">none</td></tr>
+<tr><td style="text-align: left"><a id="rust_test_suite-shared_srcs"></a>shared_srcs</td><td style="text-align: left">Optional argument for sources shared among tests, typically helper functions.</td><td style="text-align: left"><code>[]</code></td></tr>
+<tr><td style="text-align: left"><a id="rust_test_suite-kwargs"></a>kwargs</td><td style="text-align: left">Additional keyword arguments for the underlying <a href="#rust_test">rust_test</a> targets. The <code>tags</code> argument is also passed to the generated <code>test_suite</code> target.</td><td style="text-align: left">none</td></tr>
 </tbody></table>
 </div>
-<p><a id="rustfmt_aspect"></a></p>
-<h2 id="rustfmt_aspect"><a class="header" href="#rustfmt_aspect">rustfmt_aspect</a></h2>
-<pre>
-load("@rules_rust//rust:defs.bzl", "rustfmt_aspect")
-
-rustfmt_aspect()
-</pre>
-<p>This aspect is used to gather information about a crate for use in rustfmt and perform rustfmt checks</p>
-<p>Output Groups:</p>
-<ul>
-<li><code>rustfmt_checks</code>: Executes <code>rustfmt --check</code> on the specified target.</li>
-</ul>
-<p>The build setting <code>@rules_rust//rust/settings:rustfmt.toml</code> is used to control the Rustfmt <a href="https://rust-lang.github.io/rustfmt/">configuration settings</a>
-used at runtime.</p>
-<p>This aspect is executed on any target which provides the <code>CrateInfo</code> provider. However
-users may tag a target with <code>no-rustfmt</code> or <code>no-format</code> to have it skipped. Additionally,
-generated source files are also ignored by this aspect.</p>
-<p><strong>ASPECT ATTRIBUTES</strong></p>
-<p><strong>ATTRIBUTES</strong></p>
-
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="rust_clippy.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="rust_test.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="rust_doc.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="clippy.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -238,11 +228,11 @@ generated source files are also ignored by this aspect.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="rust_clippy.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="rust_test.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="rust_doc.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="clippy.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

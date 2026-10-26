@@ -156,126 +156,135 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="rust-analyzer"><a class="header" href="#rust-analyzer">Rust Analyzer</a></h1>
-<p>For <a href="https://rust-analyzer.github.io/manual.html#non-cargo-based-projects">non-Cargo projects</a>,
-<a href="https://rust-analyzer.github.io/">rust-analyzer</a> depends on either a <code>rust-project.json</code> file
-at the root of the project that describes its structure or on build system specific
-<a href="https://rust-analyzer.github.io/manual.html#rust-analyzer.workspace.discoverConfig">project auto-discovery</a>.
-The <code>rust_analyzer</code> rules facilitate both approaches.</p>
-<h2 id="rust-projectjson-approach"><a class="header" href="#rust-projectjson-approach">rust-project.json approach</a></h2>
-<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
-<p>First, ensure <code>rules_rust</code> is setup in your <code>MODULE.bazel</code>:</p>
-<pre><code class="language-python"># MODULE.bazel
-
-# See releases page for available versions:
-# https://github.com/bazelbuild/rules_rust/releases
-bazel_dep(name = "rules_rust", version = "{SEE_RELEASES}")
+<p><code>rules_rust</code> ships a one-shot installer that configures
+<a href="https://rust-analyzer.github.io/">rust-analyzer</a> to use the project's Bazel
+toolchain. After setup, rust-analyzer, the proc-macro server, and rustfmt
+all come from Bazel — no host Rust install required.</p>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick start</a></h2>
+<p>Pick your editor below. Each runs the same <code>setup</code> tool with a different
+subcommand — <code>setup</code> is re-runnable any time.</p>
+<h3 id="vscode"><a class="header" href="#vscode">VSCode</a></h3>
+<ol>
+<li>Install the
+<a href="https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer">rust-analyzer extension</a>.</li>
+<li>
+<pre><code>bazel run @rules_rust//tools/rust_analyzer:setup -- vscode
 </code></pre>
-<p>Bazel will create the target <code>@rules_rust//tools/rust_analyzer:gen_rust_project</code>, which you can build
-with</p>
-<pre><code>bazel run @rules_rust//tools/rust_analyzer:gen_rust_project
+</li>
+<li>Reload the VSCode window.</li>
+</ol>
+<p><code>.vscode/settings.json</code> is always written; a <code>*.code-workspace</code> at
+the workspace root is picked up too. Existing user keys and comments
+survive re-runs, so <code>.vscode/settings.json</code> and <code>.code-workspace</code> are
+safe to commit.</p>
+<p>Add the launcher dir to <code>.gitignore</code>:</p>
+<pre><code>.vscode/.rules_rust_analyzer/
 </code></pre>
-<p>whenever dependencies change to regenerate the <code>rust-project.json</code> file. It
-should be added to <code>.gitignore</code> because it is effectively a build artifact.
-Once the <code>rust-project.json</code> has been generated in the project root,
-rust-analyzer can pick it up upon restart.</p>
-<h4 id="vscode"><a class="header" href="#vscode">VSCode</a></h4>
-<p>To set this up using <a href="https://code.visualstudio.com/">VSCode</a>, users should first install the
-<a href="https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer">rust_analyzer plugin</a>.
-With that in place, the following task can be added to the <code>.vscode/tasks.json</code> file of the workspace
-to ensure a <code>rust-project.json</code> file is created and up to date when the editor is opened.</p>
-<pre><code class="language-json">{
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Generate rust-project.json",
-            "command": "bazel",
-            "args": [
-                "run",
-                "@rules_rust//tools/rust_analyzer:gen_rust_project"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "group": "build",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "never",
-                "panel": "dedicated"
-            },
-            "runOptions": {
-                "runOn": "folderOpen"
-            }
-        }
-    ]
-}
+<p>Re-run <code>setup</code> after a toolchain change (rustup update, <code>MODULE.bazel</code>
+edit, <code>bazel clean --expunge</code>).</p>
+<h3 id="neovim"><a class="header" href="#neovim">Neovim</a></h3>
+<pre><code>bazel run @rules_rust//tools/rust_analyzer:setup -- neovim
 </code></pre>
-<h4 id="alternative-vscode-option-prototype"><a class="header" href="#alternative-vscode-option-prototype">Alternative vscode option (prototype)</a></h4>
-<p>Add the following to your bazelrc:</p>
-<pre><code>build --@rules_rust//rust/settings:rustc_output_diagnostics=true --output_groups=+rust_lib_rustc_output,+rust_metadata_rustc_output
+<p>Prints an <code>nvim-lspconfig</code> Lua snippet to stdout. Paste it into your
+<code>init.lua</code> (or pipe to a file you <code>require</code>). Restart Neovim.</p>
+<p>For <a href="https://github.com/mrcjkb/rustaceanvim"><code>rustaceanvim</code></a> users:
+pass the printed <code>cmd</code> and <code>settings</code> table through its <code>server</code>
+option (<code>vim.g.rustaceanvim = { server = { cmd = ..., settings = ... } }</code>).</p>
+<h3 id="helix"><a class="header" href="#helix">Helix</a></h3>
+<pre><code>bazel run @rules_rust//tools/rust_analyzer:setup -- helix
 </code></pre>
-<p>Then you can use a prototype <a href="https://marketplace.visualstudio.com/items?itemName=MattStark.bazel-rust-analyzer">rust-analyzer plugin</a> that automatically collects the outputs whenever you recompile.</p>
-<h2 id="project-auto-discovery"><a class="header" href="#project-auto-discovery">Project auto-discovery</a></h2>
-<h3 id="setup-1"><a class="header" href="#setup-1">Setup</a></h3>
-<p>Auto-discovery makes <code>rust-analyzer</code> behave in a Bazel project in a similar fashion to how it does
-in a Cargo project. This is achieved by generating a structure similar to what <code>rust-project.json</code>
-contains but, instead of writing that to a file, the data gets piped to <code>rust-analyzer</code> directly
-through <code>stdout</code>. To use auto-discovery the <code>rust-analyzer</code> IDE settings must be configured similar to:</p>
-<pre><code class="language-json">"rust-analyzer": {
-    "workspace": {
-        "discoverConfig": {
-            "command": ["discover_bazel_rust_project.sh"],
-            "progressLabel": "rust_analyzer",
-            "filesToWatch": ["BUILD", "BUILD.bazel", "MODULE.bazel"]
-        }
-    }
-}
+<p>Prints a <code>languages.toml</code> snippet. Paste it into
+<code>&lt;workspace&gt;/.helix/languages.toml</code>. Restart Helix.</p>
+<h3 id="other-editors-cocnvim-vim-lsp-ale-etc"><a class="header" href="#other-editors-cocnvim-vim-lsp-ale-etc">Other editors (<code>coc.nvim</code>, <code>vim-lsp</code>, ALE, etc.)</a></h3>
+<pre><code>bazel run @rules_rust//tools/rust_analyzer:setup -- print
 </code></pre>
-<p>The shell script passed to <code>discoverConfig.command</code> is typically meant to wrap the bazel rule invocation,
-primarily for muting <code>stderr</code> (because <code>rust-analyzer</code> will consider that an error has occurred if anything
-is passed through <code>stderr</code>) and, additionally, for specifying rule arguments. E.g:</p>
-<pre><code class="language-shell">#!/usr/bin/bash
-
-bazel \
-    run \
-    @rules_rust//tools/rust_analyzer:discover_bazel_rust_project -- \
-    --bazel_startup_option=--output_base=~/ide_bazel \
-    --bazel_arg=--watchfs \
-    ${1:+"$1"} 2&gt;/dev/null
+<p>Prints a generic JSON snippet using the <code>rust-analyzer.*</code> keys VSCode
+uses. <code>coc.nvim</code> reads them via <code>coc-settings.json</code> (open with
+<code>:CocConfig</code>); <code>vim-lsp</code> / ALE / <code>LanguageClient-neovim</code> accept the
+same keys via plugin-specific config files.</p>
+<h2 id="flags"><a class="header" href="#flags">Flags</a></h2>
+<p>Re-runnable at any time. Global flags work on any subcommand.</p>
+<div class="table-wrapper"><table><thead><tr><th>Flag</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>--skip-proc-macro-server</code></td><td>Don't manage the proc-macro key.</td></tr>
+<tr><td><code>--skip-rustfmt</code></td><td>Don't manage the formatter key (use host rustfmt).</td></tr>
+<tr><td><code>--per-package-workspaces</code> / <code>--no-per-package-workspaces</code></td><td>Opt this developer in/out of per-package workspace splitting (see below).</td></tr>
+<tr><td><code>--clippy</code> / <code>--no-clippy</code></td><td>Opt this developer in/out of running clippy on save and streaming its diagnostics alongside rustc's.</td></tr>
+<tr><td><code>--clean</code></td><td>Delete <code>&lt;launcher-dir&gt;/cache/</code> before running the rest of setup. See Troubleshooting.</td></tr>
+</tbody></table>
+</div>
+<p>The <code>--clippy</code> and <code>--per-package-workspaces</code> toggles are <strong>per-user</strong>: they mutate <code>&lt;launcher-dir&gt;/user_config.json</code> (gitignored) instead of the shared committed settings file. Two developers on the same workspace can hold different preferences without touching the checked-in configuration. Editing <code>user_config.json</code> by hand works too.</p>
+<p>The <code>vscode</code> subcommand adds:</p>
+<div class="table-wrapper"><table><thead><tr><th>Flag</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>--settings-json &lt;path&gt;</code></td><td>Override the settings.json output. Defaults to <code>&lt;workspace&gt;/.vscode/settings.json</code>.</td></tr>
+<tr><td><code>--code-workspace &lt;path&gt;</code></td><td><code>.code-workspace</code> file to also update. Required when the workspace root has more than one.</td></tr>
+<tr><td><code>--no-code-workspace</code></td><td>Skip the <code>.code-workspace</code> write.</td></tr>
+<tr><td><code>--settings-key &lt;key&gt;</code></td><td>Nest managed keys under this key inside the <code>.code-workspace</code> (default: <code>settings</code>).</td></tr>
+<tr><td><code>--dry-run</code></td><td>Print each would-be-written file to stdout.</td></tr>
+<tr><td><code>--replace</code></td><td>Overwrite managed keys instead of merging. Sibling <code>folders</code> / <code>tasks</code> / <code>extensions</code> in a <code>.code-workspace</code> survive.</td></tr>
+</tbody></table>
+</div>
+<h2 id="what-you-get"><a class="header" href="#what-you-get">What you get</a></h2>
+<ul>
+<li><strong><code>▶ Run Tests</code> / <code>▶ Run Test</code></strong> codelens on every <code>#[cfg(test)] mod</code> and
+individual <code>#[test]</code>.</li>
+<li><strong>On-save squiggles</strong> from rustc diagnostics. Matches <code>cargo check</code> —
+errors anywhere in the dep graph surface at their actual file paths.</li>
+<li><strong>Format-on-save</strong> via the Bazel-toolchain rustfmt.</li>
+<li><strong>Workspace reload</strong> on watched <code>BUILD</code> / <code>MODULE.bazel</code> changes.</li>
+</ul>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="symbols--deps-look-wrong"><a class="header" href="#symbols--deps-look-wrong">Symbols / deps look wrong</a></h3>
+<p>Restart rust-analyzer (or save a <code>BUILD</code> file). If that doesn't fix
+it, re-run setup with <code>--clean</code> to nuke the discovery cache:</p>
+<pre><code>bazel run @rules_rust//tools/rust_analyzer:setup -- --clean vscode
 </code></pre>
-<p>The script above also handles an optional CLI argument which gets passed when workspace splitting is
-enabled. The script path should be either absolute or relative to the project root.</p>
-<h3 id="workspace-splitting"><a class="header" href="#workspace-splitting">Workspace splitting</a></h3>
-<p>The above configuration treats the entire project as a single workspace. However, large codebases might be
-too much to handle for <code>rust-analyzer</code> all at once. This can be addressed by splitting the codebase in
-multiple workspaces by extending the <code>discoverConfig.command</code> setting:</p>
-<pre><code class="language-json">"rust-analyzer": {
-    "workspace": {
-        "discoverConfig": {
-            "command": ["discover_bazel_rust_project.sh", "{arg}"],
-            "progressLabel": "rust_analyzer",
-            "filesToWatch": ["BUILD", "BUILD.bazel", "MODULE.bazel"]
-        }
-    }
-}
+<p>Works with any subcommand (<code>vscode</code> / <code>neovim</code> / <code>helix</code> / <code>print</code>).</p>
+<h3 id="diagnostics-stopped-appearing"><a class="header" href="#diagnostics-stopped-appearing">Diagnostics stopped appearing</a></h3>
+<p>Check <code>&lt;workspace&gt;/.rules_rust_analyzer/flycheck.log</code>.</p>
+<h3 id="after-bazel-clean---expunge-or-toolchain-changes"><a class="header" href="#after-bazel-clean---expunge-or-toolchain-changes">After <code>bazel clean --expunge</code> or toolchain changes</a></h3>
+<p>Re-run <code>setup</code>.</p>
+<h3 id="noisy-cargo-metadata-errors-on-startup"><a class="header" href="#noisy-cargo-metadata-errors-on-startup">Noisy <code>cargo metadata</code> errors on startup</a></h3>
+<p><code>setup</code> does not manage <code>rust-analyzer.files.excludeDirs</code>. If your
+workspace has stub <code>Cargo.toml</code> files that aren't meant to be
+auto-loaded (common in <code>rules_rust</code> itself under <code>examples/</code>,
+<code>crate_universe/</code>, etc.), rust-analyzer still finds them and logs
+errors. Silence them by adding the directory names to <code>settings.json</code>
+yourself — your entries survive future <code>setup</code> runs:</p>
+<pre><code>"rust-analyzer.files.excludeDirs": ["examples", "some_other_dir"]
 </code></pre>
-<p><code>{arg}</code> acts as a placeholder that <code>rust-analyzer</code> replaces with the path of the source / build file
-that gets opened.</p>
-<p>The root of the workspace will, in this configuration, be the package the crate currently being worked on
-belongs to. This means that only that package and its dependencies get built and indexed by <code>rust-analyzer</code>,
-thus allowing for a smaller footprint.</p>
-<p><code>rust-analyzer</code> will switch workspaces whenever an out-of-tree file gets opened, essentially indexing that
-crate and its dependencies separately. A caveat of this is that <em>dependents</em> of the crate currently being
-worked on are not indexed and won't be tracked by <code>rust-analyzer</code>.</p>
+<p>Trade-off: <code>files.excludeDirs</code> also hides those sources from
+rust-analyzer's virtual filesystem, so files under those directories
+won't get IDE features even if they're part of a Bazel-discovered
+crate. Only exclude directories whose sources you're willing to lose
+IDE support on.</p>
+<h2 id="workspace-splitting"><a class="header" href="#workspace-splitting">Workspace splitting</a></h2>
+<p>By default the whole project is treated as a single workspace.</p>
+<p>For monorepos where indexing the whole graph is too slow, pass
+<code>--per-package-workspaces</code>. Discover then scopes to the saved file's
+package + deps; rust-analyzer reloads when you jump to a different
+package. Caveat: <em>dependents</em> of the package you're working on aren't
+indexed, so "find usages" can miss callers in other packages.</p>
+<p>Switch any time by re-running <code>setup</code> with or without the flag.</p>
+<h2 id="debugging"><a class="header" href="#debugging">Debugging</a></h2>
+<p>The <code>▶ Debug</code> codelens VSCode renders next to <code>#[test]</code> functions
+<strong>does not work</strong> for Bazel projects. Use <code>.vscode/launch.json</code> + F5
+instead:</p>
+<pre><code>bazel run @rules_rust//tools/vscode:gen_launch_json
+</code></pre>
+<p>Install
+<a href="https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb">CodeLLDB</a>
+first. Set a breakpoint inside the test and run the target — one
+launch config covers every test in that binary.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="cargo.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="extract_cargo_lints.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="rust_unpretty.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="unpretty.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -285,11 +294,11 @@ worked on are not indexed and won't be tracked by <code>rust-analyzer</code>.</p
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="cargo.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="extract_cargo_lints.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="rust_unpretty.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="unpretty.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
